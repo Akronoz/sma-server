@@ -163,38 +163,46 @@ def ingest_snapshot(
     return {"ok": True, "received_at": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
+def _collect_latest_records(tables) -> dict[str, Any]:
+    by_time: dict[datetime, dict[str, Any]] = {}
+    for table in tables:
+        for record in table.records:
+            record_time = record.get_time()
+            if record_time is None:
+                continue
+            entry = by_time.setdefault(record_time, {})
+            field = record.get_field()
+            if field:
+                entry[field] = record.get_value()
+            for tag in ("host", "inverter_unit", "meter_unit"):
+                value = record.values.get(tag)
+                if value is not None:
+                    entry[tag] = value
+
+    if not by_time:
+        return {}
+
+    latest_time = max(by_time)
+    data = by_time[latest_time]
+    data["time"] = latest_time.isoformat()
+    return data
+
+
 @app.get("/api/v1/snapshots/latest")
 def latest_snapshot() -> dict:
     query = f'''
 from(bucket: "{INFLUX_BUCKET}")
   |> range(start: -30d)
   |> filter(fn: (r) => r._measurement == "sma_plant")
-  |> group(columns: ["_field"])
-  |> last()
+  |> sort(columns: ["_time"], desc: true)
+  |> limit(n: 50)
 '''
     try:
         tables = _get_query_api().query(query=query, org=INFLUX_ORG)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Error leyendo InfluxDB: {exc}") from exc
 
-    data: dict[str, Any] = {}
-    latest_time: datetime | None = None
-    for table in tables:
-        for record in table.records:
-            field = record.get_field()
-            if field:
-                data[field] = record.get_value()
-            record_time = record.get_time()
-            if record_time and (latest_time is None or record_time > latest_time):
-                latest_time = record_time
-            for tag in ("host", "inverter_unit", "meter_unit"):
-                value = record.values.get(tag)
-                if value is not None:
-                    data[tag] = value
-
+    data = _collect_latest_records(tables)
     if not data:
         raise HTTPException(status_code=404, detail="Sin datos todavía")
-
-    if latest_time:
-        data["time"] = latest_time.isoformat()
     return data
