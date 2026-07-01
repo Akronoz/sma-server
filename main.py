@@ -50,16 +50,12 @@ def _metric(payload: dict, *keys: str) -> float | None:
     return float(node) if isinstance(node, (int, float)) else None
 
 
-def _parse_time(payload: dict) -> datetime:
+def _plant_timestamp(payload: dict) -> str | None:
     for key in ("timestamp", "sent_at"):
         raw = payload.get(key)
-        if not raw:
-            continue
-        try:
-            return datetime.strptime(raw, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-        except ValueError:
-            continue
-    return datetime.now(timezone.utc)
+        if isinstance(raw, str) and raw.strip():
+            return raw.strip()
+    return None
 
 
 def _get_client() -> InfluxDBClient:
@@ -94,13 +90,19 @@ def _verify_api_key(header_key: str | None) -> None:
 
 def _payload_to_point(payload: dict) -> Point:
     host = str(payload.get("host", "unknown"))
+    # Hora de ingesta en UTC real. El timestamp de la planta va como campo
+    # (la RPi envía hora local sin zona; si se usa como UTC queda en el futuro
+    # y Flux con stop=now() no lo devuelve).
     point = (
         Point("sma_plant")
         .tag("host", host)
         .tag("inverter_unit", str(payload.get("inverter_unit", "")))
         .tag("meter_unit", str(payload.get("meter_unit", "")))
-        .time(_parse_time(payload))
+        .time(datetime.now(timezone.utc))
     )
+    plant_ts = _plant_timestamp(payload)
+    if plant_ts:
+        point = point.field("plant_timestamp", plant_ts)
 
     fields: dict[str, float] = {
         "inverter_power_w": _metric(payload, "inverter_power", "value"),
@@ -216,7 +218,7 @@ def _collect_latest_records(tables) -> dict[str, Any]:
 def latest_snapshot() -> dict:
     query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -30d)
+  |> range(start: -30d, stop: now() + 1d)
   |> filter(fn: (r) => r._measurement == "sma_plant")
   |> sort(columns: ["_time"], desc: true)
   |> limit(n: 50)
