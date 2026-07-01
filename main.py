@@ -135,11 +135,22 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/ready")
+def ready() -> dict[str, Any]:
+    return {
+        "api_key_set": bool(API_KEY),
+        "influx_url": INFLUX_URL,
+        "influx_org_set": bool(INFLUX_ORG),
+        "influx_token_set": bool(INFLUX_TOKEN),
+        "influx_bucket": INFLUX_BUCKET,
+    }
+
+
 @app.post("/api/v1/snapshots")
 def ingest_snapshot(
     payload: dict,
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
-) -> dict[str, str]:
+) -> dict[str, Any]:
     _verify_api_key(x_api_key)
 
     point = _payload_to_point(payload)
