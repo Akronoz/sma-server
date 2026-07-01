@@ -218,7 +218,7 @@ def _collect_latest_records(tables) -> dict[str, Any]:
 def latest_snapshot() -> dict:
     query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -30d, stop: now() + 1d)
+  |> range(start: -30d)
   |> filter(fn: (r) => r._measurement == "sma_plant")
   |> sort(columns: ["_time"], desc: true)
   |> limit(n: 50)
