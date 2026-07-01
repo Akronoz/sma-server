@@ -15,10 +15,14 @@ Uso:
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from datetime import datetime, timezone
 from typing import Any
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("sma-server")
 
 from fastapi import FastAPI, Header, HTTPException
 from influxdb_client import InfluxDBClient, Point
@@ -154,13 +158,33 @@ def ingest_snapshot(
     _verify_api_key(x_api_key)
 
     point = _payload_to_point(payload)
+    metrics = [
+        _metric(payload, "inverter_power", "value"),
+        _metric(payload, "meter_import", "value"),
+        _metric(payload, "meter_export", "value"),
+        _metric(payload, "meter_balance", "value"),
+        _metric(payload, "site_consumption", "value"),
+        _metric(payload, "meter_apparent_total", "value"),
+        _metric(payload, "meter_frequency", "value"),
+    ]
+    field_count = sum(1 for m in metrics if m is not None) + (
+        1 if payload.get("read_duration_s") is not None else 0
+    )
+    logger.info("Escribiendo punto en %s/%s (%d campos)", INFLUX_ORG, INFLUX_BUCKET, field_count)
+
     write_api = _get_write_api()
     try:
         write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
     except Exception as exc:  # noqa: BLE001
+        logger.error("Influx write falló: %s", exc)
         raise HTTPException(status_code=502, detail=f"Error escribiendo en InfluxDB: {exc}") from exc
 
-    return {"ok": True, "received_at": time.strftime("%Y-%m-%d %H:%M:%S")}
+    logger.info("Influx write OK")
+    return {
+        "ok": True,
+        "received_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "fields_written": field_count,
+    }
 
 
 def _collect_latest_records(tables) -> dict[str, Any]:
