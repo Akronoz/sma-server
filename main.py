@@ -167,21 +167,34 @@ def ingest_snapshot(
 def latest_snapshot() -> dict:
     query = f'''
 from(bucket: "{INFLUX_BUCKET}")
-  |> range(start: -7d)
+  |> range(start: -30d)
   |> filter(fn: (r) => r._measurement == "sma_plant")
-  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-  |> sort(columns: ["_time"], desc: true)
-  |> limit(n: 1)
+  |> group(columns: ["_field"])
+  |> last()
 '''
     try:
         tables = _get_query_api().query(query=query, org=INFLUX_ORG)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=502, detail=f"Error leyendo InfluxDB: {exc}") from exc
 
+    data: dict[str, Any] = {}
+    latest_time: datetime | None = None
     for table in tables:
         for record in table.records:
-            data = {key: record.values.get(key) for key in record.values if not key.startswith("_")}
-            data["time"] = record.get_time().isoformat()
-            return data
+            field = record.get_field()
+            if field:
+                data[field] = record.get_value()
+            record_time = record.get_time()
+            if record_time and (latest_time is None or record_time > latest_time):
+                latest_time = record_time
+            for tag in ("host", "inverter_unit", "meter_unit"):
+                value = record.values.get(tag)
+                if value is not None:
+                    data[tag] = value
 
-    raise HTTPException(status_code=404, detail="Sin datos todavía")
+    if not data:
+        raise HTTPException(status_code=404, detail="Sin datos todavía")
+
+    if latest_time:
+        data["time"] = latest_time.isoformat()
+    return data
