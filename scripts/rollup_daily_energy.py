@@ -8,8 +8,8 @@ Uso:
   python scripts/rollup_daily_energy.py --backfill
   python scripts/rollup_daily_energy.py --from 2026-06-01 --to 2026-06-30
 
-Cron recomendado (00:05 TZ planta ≈ 22:05 UTC invierno / 23:05 verano):
-  5 0 * * * cd /opt/sma-server && python scripts/rollup_daily_energy.py --yesterday
+Cron recomendado (00:05 hora del servidor; ajustar TZ si hace falta):
+  5 0 * * * cd ~/gironasa/sma-server && set -a && . ./.env && set +a && venv/bin/python3 scripts/rollup_daily_energy.py --yesterday
 """
 
 from __future__ import annotations
