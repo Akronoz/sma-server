@@ -1,0 +1,6 @@
+# Rollup diario a las 00:05 (hora del servidor; ajustar TZ si hace falta).
+# Instalar: crontab -e
+5 0 * * * cd /opt/sma-server && /usr/bin/python3 scripts/rollup_daily_energy.py --yesterday >> /var/log/sma-rollup.log 2>&1
+
+# Backfill inicial (una sola vez):
+# cd /opt/sma-server && python3 scripts/rollup_daily_energy.py --backfill
