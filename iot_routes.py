@@ -69,6 +69,22 @@ def _parse_event_time(event: dict) -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _coerce_numeric(value: Any, payload: Any) -> float | int | None:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if payload is None:
+        return None
+    text = str(payload).strip().replace(",", ".")
+    if not text:
+        return None
+    try:
+        return float(text) if "." in text else int(text)
+    except ValueError:
+        return None
+
+
 def _telemetry_to_point(event: dict) -> Point | None:
     device_id = str(event.get("device_id", "")).strip()
     if not device_id:
@@ -76,7 +92,8 @@ def _telemetry_to_point(event: dict) -> Point | None:
 
     metric = str(event.get("metric", event.get("category", "unknown")))
     channel = event.get("channel")
-    value = event.get("value")
+    payload = event.get("payload")
+    numeric = _coerce_numeric(event.get("value"), payload)
 
     point = (
         Point("iot_telemetry")
@@ -87,15 +104,12 @@ def _telemetry_to_point(event: dict) -> Point | None:
     if channel is not None:
         point = point.tag("channel", str(channel))
 
-    if isinstance(value, bool):
-        point = point.field("value", int(value))
-    elif isinstance(value, (int, float)):
-        point = point.field("value", float(value))
-    else:
-        payload = event.get("payload")
+    if numeric is None:
         if payload is None:
             return None
         point = point.field("value_str", str(payload))
+    else:
+        point = point.field("value", float(numeric))
 
     payload_text = event.get("payload")
     if payload_text is not None:
@@ -137,19 +151,24 @@ def ingest_telemetry(
         logger.error("Influx write IoT falló: %s", exc)
         raise HTTPException(status_code=502, detail=f"Error escribiendo en InfluxDB: {exc}") from exc
 
-    by_device: dict[str, set[str]] = {}
+    summaries: list[str] = []
     for event in events:
         if not isinstance(event, dict):
             continue
         dev = str(event.get("device_id", ""))
         met = str(event.get("metric", ""))
-        if dev and met:
-            by_device.setdefault(dev, set()).add(met)
+        if not dev or not met:
+            continue
+        num = _coerce_numeric(event.get("value"), event.get("payload"))
+        if num is not None and met.startswith("temperature"):
+            summaries.append(f"{dev}/{met}={num:g}")
+        elif num is not None:
+            summaries.append(f"{dev}/{met}={num:g}")
     logger.info(
-        "IoT telemetría → Influx: %d puntos, bucket=%s, %s",
+        "IoT telemetría → Influx: %d puntos, bucket=%s%s",
         len(points),
         _influx_bucket,
-        ", ".join(f"{d}:[{','.join(sorted(m))}]" for d, m in sorted(by_device.items())),
+        f" ({', '.join(summaries)})" if summaries else "",
     )
 
     return {"ok": True, "written": len(points)}
