@@ -53,6 +53,22 @@ def _require_auth(x_api_key: str | None) -> None:
     _verify_api_key(x_api_key)
 
 
+def _parse_event_time(event: dict) -> datetime:
+    received_at = event.get("received_at")
+    if isinstance(received_at, str) and received_at.strip():
+        text = received_at.strip().replace(" ", "T")
+        try:
+            if text.endswith("Z"):
+                return datetime.fromisoformat(text.replace("Z", "+00:00"))
+            parsed = datetime.fromisoformat(text)
+            if parsed.tzinfo is None:
+                return parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
+        except ValueError:
+            pass
+    return datetime.now(timezone.utc)
+
+
 def _telemetry_to_point(event: dict) -> Point | None:
     device_id = str(event.get("device_id", "")).strip()
     if not device_id:
@@ -66,7 +82,7 @@ def _telemetry_to_point(event: dict) -> Point | None:
         Point("iot_telemetry")
         .tag("device_id", device_id)
         .tag("metric", metric)
-        .time(datetime.now(timezone.utc))
+        .time(_parse_event_time(event))
     )
     if channel is not None:
         point = point.tag("channel", str(channel))
