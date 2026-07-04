@@ -1,5 +1,6 @@
 # Despliegue estándar: sma-server en localhost:8000 (nginx hace proxy desde fuera).
-# Si necesitas compartir red con WireGuard, usa docker-compose.wg.yml
+# RPi por WireGuard: añade docker-compose.vpn.yml (http://10.8.0.1:8000).
+# Alternativa: red del contenedor WG con docker-compose.wg.yml
 
 services:
   sma-server:
