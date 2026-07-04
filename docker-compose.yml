@@ -1,6 +1,5 @@
-# Añade el servicio sma-server a tu stack existente.
-# Si ya tienes un docker-compose.yml con WireGuard, copia solo el bloque
-# "sma-server" y ajusta NOMBRE_CONTENEDOR_WG al nombre real.
+# Despliegue estándar: sma-server en localhost:8000 (nginx hace proxy desde fuera).
+# Si necesitas compartir red con WireGuard, usa docker-compose.wg.yml
 
 services:
   sma-server:
@@ -9,7 +8,6 @@ services:
     env_file: .env
     environment:
       INFLUX_URL: http://172.17.0.1:8086
-    network_mode: "service:NOMBRE_CONTENEDOR_WG"
+    ports:
+      - "127.0.0.1:8000:8000"
     restart: unless-stopped
-    depends_on:
-      - NOMBRE_CONTENEDOR_WG

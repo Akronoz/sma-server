@@ -1,0 +1,8 @@
+# Opcional: comparte la red del contenedor WireGuard.
+# 1. Sustituye "wireguard" por el container_name real de tu WG
+# 2. docker compose -f docker-compose.yml -f docker-compose.wg.yml up -d --build
+
+services:
+  sma-server:
+    network_mode: "service:wireguard"
+    ports: !reset []
