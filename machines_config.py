@@ -13,6 +13,20 @@ DEFAULT_CONFIG = Path(__file__).with_name("data") / "machines_config.json"
 DEFAULT_MACHINES: dict[str, Any] = {"machines": []}
 
 
+def _normalize_ambient_source(source: Any) -> dict[str, str] | None:
+    if not isinstance(source, dict):
+        return None
+    device_id = str(source.get("deviceId") or source.get("device_id") or "").strip()
+    channel = str(source.get("channel") or "").strip()
+    if not device_id or channel not in ("1", "2", "3"):
+        return None
+    normalized: dict[str, str] = {"deviceId": device_id, "channel": channel}
+    label = str(source.get("label") or "").strip()
+    if label:
+        normalized["label"] = label
+    return normalized
+
+
 class MachinesConfigStore:
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or DEFAULT_CONFIG
@@ -47,12 +61,20 @@ class MachinesConfigStore:
         if not isinstance(machines, list):
             raise ValueError("payload.machines debe ser una lista")
         with self._lock:
+            previous_ambient = self._data.get("ambientTemperatureSource")
             self._data = {"machines": machines}
             if "ambientTemperatureSource" in payload:
                 source = payload.get("ambientTemperatureSource")
                 if source is None:
                     self._data.pop("ambientTemperatureSource", None)
-                elif isinstance(source, dict):
-                    self._data["ambientTemperatureSource"] = source
+                else:
+                    normalized = _normalize_ambient_source(source)
+                    if normalized is None:
+                        raise ValueError(
+                            "ambientTemperatureSource inválido (equipo y sonda T1-T3)"
+                        )
+                    self._data["ambientTemperatureSource"] = normalized
+            elif isinstance(previous_ambient, dict):
+                self._data["ambientTemperatureSource"] = deepcopy(previous_ambient)
             self._save()
             return deepcopy(self._data)
