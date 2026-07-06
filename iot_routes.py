@@ -216,6 +216,9 @@ def create_command(
     if action == "set_output" and (output_int is None or state_bool is None):
         raise HTTPException(status_code=422, detail="set_output requiere output y state")
 
+    if action == "release_output" and output_int is None:
+        raise HTTPException(status_code=422, detail="release_output requiere output")
+
     command = _command_store.enqueue(
         device_id=device_id,
         action=action,
