@@ -48,5 +48,11 @@ class MachinesConfigStore:
             raise ValueError("payload.machines debe ser una lista")
         with self._lock:
             self._data = {"machines": machines}
+            if "ambientTemperatureSource" in payload:
+                source = payload.get("ambientTemperatureSource")
+                if source is None:
+                    self._data.pop("ambientTemperatureSource", None)
+                elif isinstance(source, dict):
+                    self._data["ambientTemperatureSource"] = source
             self._save()
             return deepcopy(self._data)
