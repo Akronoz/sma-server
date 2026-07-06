@@ -12,6 +12,7 @@ from fastapi import APIRouter, Header, HTTPException
 from influxdb_client import Point
 
 from devices_store import DevicesStore
+from firmware_manifest import FirmwareManifestStore
 from iot_commands import CommandStore
 from machines_config import MachinesConfigStore
 
@@ -22,10 +23,12 @@ router = APIRouter(prefix="/api/v1/iot", tags=["iot"])
 _commands_path = os.environ.get("IOT_COMMANDS_PATH", "").strip()
 _config_path = os.environ.get("MACHINES_CONFIG_PATH", "").strip()
 _devices_path = os.environ.get("IOT_DEVICES_PATH", "").strip()
+_firmware_path = os.environ.get("IOT_FIRMWARE_MANIFEST_PATH", "").strip()
 
 _command_store = CommandStore(Path(_commands_path) if _commands_path else None)
 _machines_store = MachinesConfigStore(Path(_config_path) if _config_path else None)
 _devices_store = DevicesStore(Path(_devices_path) if _devices_path else None)
+_firmware_store = FirmwareManifestStore(Path(_firmware_path) if _firmware_path else None)
 
 _get_write_api: Callable[[], Any] | None = None
 _influx_org = ""
@@ -246,6 +249,35 @@ def ack_command(
     if command is None:
         raise HTTPException(status_code=404, detail="Comando no encontrado")
     return {"ok": True, "command": command.to_public()}
+
+
+@router.get("/firmware")
+def get_firmware_manifest(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _require_auth(x_api_key)
+    manifest = _firmware_store.get()
+    version = manifest.get("version")
+    return {
+        "version": version if isinstance(version, str) and version.strip() else None,
+        "updated_at": manifest.get("updated_at"),
+    }
+
+
+@router.put("/firmware")
+def put_firmware_manifest(
+    payload: dict,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> dict[str, Any]:
+    _require_auth(x_api_key)
+    version = str(payload.get("version", "")).strip()
+    if not version:
+        raise HTTPException(status_code=422, detail="version requerida")
+    try:
+        manifest = _firmware_store.replace(version)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"ok": True, "manifest": manifest}
 
 
 @router.get("/machines/config")
