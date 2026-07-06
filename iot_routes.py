@@ -219,11 +219,16 @@ def create_command(
     if action == "release_output" and output_int is None:
         raise HTTPException(status_code=422, detail="release_output requiere output")
 
+    url = str(payload.get("url", "")).strip() or None
+    if action == "ota_update" and url is not None and not url.startswith("http://"):
+        raise HTTPException(status_code=422, detail="ota_update url debe ser http:// (LAN)")
+
     command = _command_store.enqueue(
         device_id=device_id,
         action=action,
         output=output_int,
         state=state_bool,
+        url=url,
     )
     return {"ok": True, "command": command.to_public()}
 

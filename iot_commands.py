@@ -22,6 +22,7 @@ class IotCommand:
     status: str = "pending"
     output: int | None = None
     state: bool | None = None
+    url: str = ""
     detail: str = ""
 
     def to_public(self) -> dict[str, Any]:
@@ -30,6 +31,8 @@ class IotCommand:
             data.pop("output", None)
         if data.get("state") is None:
             data.pop("state", None)
+        if not data.get("url"):
+            data.pop("url", None)
         if not data.get("detail"):
             data.pop("detail", None)
         return data
@@ -62,6 +65,7 @@ class CommandStore:
                 status=str(item.get("status", "pending")),
                 output=item.get("output"),
                 state=item.get("state"),
+                url=str(item.get("url", "")),
                 detail=str(item.get("detail", "")),
             )
             if cmd.id:
@@ -79,6 +83,7 @@ class CommandStore:
         action: str,
         output: int | None = None,
         state: bool | None = None,
+        url: str | None = None,
     ) -> IotCommand:
         command = IotCommand(
             id=uuid.uuid4().hex[:12],
@@ -87,6 +92,7 @@ class CommandStore:
             created_at=datetime.now(timezone.utc).isoformat(),
             output=output,
             state=state,
+            url=(url or "").strip(),
         )
         with self._lock:
             self._commands[command.id] = command
