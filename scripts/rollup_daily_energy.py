@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Calcula kWh diarios desde sma_plant y escribe sma_energy_day en Influx.
+Compute daily kWh from sma_plant and write sma_energy_day to Influx.
 
-Uso:
+Usage:
   python scripts/rollup_daily_energy.py --yesterday
   python scripts/rollup_daily_energy.py --date 2026-07-01
   python scripts/rollup_daily_energy.py --backfill
   python scripts/rollup_daily_energy.py --from 2026-06-01 --to 2026-06-30
 
-Cron recomendado (00:05 hora del servidor; ajustar TZ si hace falta):
+Recommended cron (00:05 server time; adjust TZ if needed):
   5 0 * * * cd ~/gironasa/sma-server && set -a && . ./.env && set +a && venv/bin/python3 scripts/rollup_daily_energy.py --yesterday
 """
 
@@ -101,7 +101,7 @@ def main() -> None:
             )
             if result is None:
                 skipped += 1
-                logger.info("%s: sin datos", ymd)
+                logger.info("%s: no data", ymd)
             else:
                 written += 1
                 logger.info(
@@ -113,7 +113,7 @@ def main() -> None:
                     result.peak_production_kw,
                 )
 
-        logger.info("Listo: %d escritos, %d omitidos", written, skipped)
+        logger.info("Done: %d written, %d skipped", written, skipped)
     finally:
         client.close()
 

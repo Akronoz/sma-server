@@ -1,4 +1,4 @@
-"""Persistencia de configuración de máquinas (timeline, device_id, salidas)."""
+"""Machine configuration persistence (timeline, device_id, outputs)."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Registro de dispositivos IoT (serial ESP) y nombres asignados desde la web."""
+"""IoT device registry (ESP serial) and names assigned from the web."""
 
 from __future__ import annotations
 

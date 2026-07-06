@@ -1,4 +1,4 @@
-"""Cola de comandos IoT pendientes de ejecutar por el gateway en la RPi."""
+"""Queue of IoT commands pending execution by the gateway on the RPi."""
 
 from __future__ import annotations
 

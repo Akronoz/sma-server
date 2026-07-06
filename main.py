@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-API en el VPS: recibe snapshots de la RPi y los escribe en InfluxDB.
+VPS API: receives snapshots from the RPi and writes them to InfluxDB.
 
-Variables de entorno:
-  SMA_API_KEY        Clave compartida con sma_push.py (obligatoria)
-  INFLUX_URL         URL de InfluxDB (ej. http://localhost:8086)
-  INFLUX_TOKEN       Token con permiso de escritura
-  INFLUX_ORG         Organización InfluxDB
-  INFLUX_BUCKET      Bucket destino (ej. sma)
+Environment variables:
+  SMA_API_KEY        Shared key with sma_push.py (required)
+  INFLUX_URL         InfluxDB URL (e.g. http://localhost:8086)
+  INFLUX_TOKEN       Token with write permission
+  INFLUX_ORG         InfluxDB organization
+  INFLUX_BUCKET      Destination bucket (e.g. sma)
 
-Uso:
+Usage:
   uvicorn main:app --host 0.0.0.0 --port 8000
 """
 
@@ -101,9 +101,9 @@ configure_iot_routes(
 
 def _payload_to_point(payload: dict) -> Point:
     host = str(payload.get("host", "unknown"))
-    # Hora de ingesta en UTC real. El timestamp de la planta va como campo
-    # (la RPi envía hora local sin zona; si se usa como UTC queda en el futuro
-    # y Flux con stop=now() no lo devuelve).
+    # Real ingest time in UTC. The plant timestamp is stored as a field
+    # (the RPi sends local time without timezone; if used as UTC it ends up
+    # in the future and Flux with stop=now() won't return it).
     point = (
         Point("sma_plant")
         .tag("host", host)
@@ -183,13 +183,13 @@ def ingest_snapshot(
     field_count = sum(1 for m in metrics if m is not None) + (
         1 if payload.get("read_duration_s") is not None else 0
     )
-    logger.info("Escribiendo punto en %s/%s (%d campos)", INFLUX_ORG, INFLUX_BUCKET, field_count)
+    logger.info("Writing point to %s/%s (%d fields)", INFLUX_ORG, INFLUX_BUCKET, field_count)
 
     write_api = _get_write_api()
     try:
         write_api.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=point)
     except Exception as exc:  # noqa: BLE001
-        logger.error("Influx write falló: %s", exc)
+        logger.error("Influx write failed: %s", exc)
         raise HTTPException(status_code=502, detail=f"Error escribiendo en InfluxDB: {exc}") from exc
 
     logger.info("Influx write OK")

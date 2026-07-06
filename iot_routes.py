@@ -1,4 +1,4 @@
-"""Rutas FastAPI para telemetría IoT, comandos y config de máquinas."""
+"""FastAPI routes for IoT telemetry, commands, and machine config."""
 
 from __future__ import annotations
 
@@ -86,10 +86,10 @@ def _coerce_numeric(value: Any, payload: Any) -> float | int | None:
 
 
 def _ingest_timestamp(event: dict, *, offset_us: int = 0) -> datetime:
-    """Hora de ingesta en UTC (igual que sma_plant).
+    """Ingest time in UTC (same as sma_plant).
 
-    No usar received_at de la RPi como _time: suele venir en hora local sin zona
-    y Flux con stop=now() no devuelve puntos fechados en el futuro.
+    Do not use the RPi's received_at as _time: it usually arrives as local time
+    without timezone and Flux with stop=now() won't return points dated in the future.
     """
     return datetime.now(timezone.utc) + timedelta(microseconds=offset_us)
 
@@ -161,7 +161,7 @@ def ingest_telemetry(
     try:
         write_api.write(bucket=_influx_bucket, org=_influx_org, record=points)
     except Exception as exc:  # noqa: BLE001
-        logger.error("Influx write IoT falló: %s", exc)
+        logger.error("Influx IoT write failed: %s", exc)
         raise HTTPException(status_code=502, detail=f"Error escribiendo en InfluxDB: {exc}") from exc
 
     summaries: list[str] = []
@@ -178,7 +178,7 @@ def ingest_telemetry(
         elif num is not None:
             summaries.append(f"{dev}/{met}={num:g}")
     logger.info(
-        "IoT telemetría → Influx: %d puntos, bucket=%s%s",
+        "IoT telemetry → Influx: %d points, bucket=%s%s",
         len(points),
         _influx_bucket,
         f" ({', '.join(summaries)})" if summaries else "",

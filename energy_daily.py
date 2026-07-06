@@ -1,7 +1,7 @@
 """
-Integración diaria de energía desde sma_plant → sma_energy_day.
+Daily energy integration from sma_plant → sma_energy_day.
 
-Un punto por día calendario (TZ planta) con kWh acumulados y pico kW.
+One point per calendar day (plant TZ) with accumulated kWh and peak kW.
 """
 
 from __future__ import annotations
