@@ -218,7 +218,7 @@ def pending_commands(
 
 
 @router.post("/commands")
-def create_command(
+async def create_command(
     payload: dict,
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
 ) -> dict[str, Any]:
@@ -254,7 +254,7 @@ def create_command(
 
     public = command.to_public()
     if ws_manager.is_connected(GATEWAY_ID):
-        asyncio.create_task(ws_manager.send_command(GATEWAY_ID, public))
+        await ws_manager.send_command(GATEWAY_ID, public)
     else:
         logger.debug("Gateway %s not connected via WS; command queued for polling", GATEWAY_ID)
 
