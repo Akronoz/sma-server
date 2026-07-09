@@ -5,6 +5,6 @@
 #   docker compose -f docker-compose.standalone.yml -f docker-compose.vpn.yml up -d --build
 
 services:
-  sma-server:
+  backend:
     ports:
       - "10.8.0.1:8000:8000"

@@ -1,13 +1,13 @@
-# sma-server solo en localhost (nginx → 127.0.0.1:8000).
+# backend solo en localhost (nginx → 127.0.0.1:8000).
 # No expone 10.8.0.1: la RPi por VPN no llegará con este modo.
 #
 # Uso:
 #   docker compose -f docker-compose.standalone.yml up -d --build
 
 services:
-  sma-server:
+  backend:
     build: .
-    container_name: sma-server
+    container_name: backend
     env_file: .env
     environment:
       INFLUX_URL: http://172.17.0.1:8086

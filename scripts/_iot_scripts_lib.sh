@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Helpers compartidos para scripts IoT (sma-server en wg-easy → 10.8.0.1:8000).
+# Helpers compartidos para scripts IoT (backend en wg-easy → 10.8.0.1:8000).
 
 _iot_load_env() {
   local root

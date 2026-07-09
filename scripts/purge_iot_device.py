@@ -50,11 +50,11 @@ def purge_influx(device_id: str, env: dict[str, str]) -> bool:
     bucket = env.get("INFLUX_BUCKET", "sma")
     token = env.get("INFLUX_TOKEN", "").strip()
     if not token:
-        print("ERROR: INFLUX_TOKEN no definido en .env", file=sys.stderr)
+        print("ERROR: INFLUX_TOKEN not set in .env", file=sys.stderr)
         return False
 
     stop = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    # Borra todo el bucket con ese device_id (cualquier measurement).
+    # Delete all bucket data for this device_id (any measurement).
     predicate = f'device_id="{device_id}"'
     body = json.dumps(
         {
@@ -133,41 +133,41 @@ from(bucket: "{bucket}")
 def purge_registry(device_id: str, root: Path) -> bool:
     path = root / "data" / "iot_devices.json"
     if not path.is_file():
-        print(f"  Registry: no existe {path}")
+        print(f"  Registry: {path} does not exist")
         return False
 
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        print(f"  Registry FAIL: JSON inválido ({exc})", file=sys.stderr)
+        print(f"  Registry FAIL: invalid JSON ({exc})", file=sys.stderr)
         return False
 
     devices = raw.get("devices")
     if not isinstance(devices, dict) or device_id not in devices:
-        print(f"  Registry: {device_id} no estaba en el fichero")
+        print(f"  Registry: {device_id} was not in the file")
         return False
 
     del devices[device_id]
     path.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"  Registry OK: eliminado {device_id}")
+    print(f"  Registry OK: removed {device_id}")
     return True
 
 
 def purge_machines_config(device_id: str, root: Path) -> bool:
     path = root / "data" / "machines_config.json"
     if not path.is_file():
-        print(f"  Machines config: no existe {path}")
+        print(f"  Machines config: {path} does not exist")
         return False
 
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
-        print(f"  Machines config FAIL: JSON inválido ({exc})", file=sys.stderr)
+        print(f"  Machines config FAIL: invalid JSON ({exc})", file=sys.stderr)
         return False
 
     machines = raw.get("machines")
     if not isinstance(machines, list):
-        print("  Machines config: sin lista machines")
+        print("  Machines config: no machines list")
         return False
 
     before = len(machines)
@@ -179,14 +179,14 @@ def purge_machines_config(device_id: str, root: Path) -> bool:
         amb_id = str(ambient.get("deviceId") or ambient.get("device_id") or "").strip()
         if amb_id == device_id:
             raw.pop("ambientTemperatureSource", None)
-            print(f"  Machines config: ambientTemperatureSource apuntaba a {device_id} (eliminado)")
+            print(f"  Machines config: ambientTemperatureSource pointed to {device_id} (removed)")
 
     if removed == 0:
-        print(f"  Machines config: {device_id} no estaba en la lista")
+        print(f"  Machines config: {device_id} was not in the list")
         return False
 
     path.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"  Machines config OK: eliminadas {removed} entrada(s) de {device_id}")
+    print(f"  Machines config OK: removed {removed} entry/entries for {device_id}")
     return True
 
 
@@ -194,7 +194,7 @@ def purge_api(device_id: str, env: dict[str, str]) -> bool:
     api_key = env.get("SMA_API_KEY", "").strip()
     base = resolve_api_base(env)
     if not api_key or not base:
-        print("  API: omitida (sin SMA_API_KEY o sin /health)")
+        print("  API: skipped (no SMA_API_KEY or /health unavailable)")
         return False
 
     query = urllib.parse.urlencode({"purge_influx": "true"})
@@ -229,12 +229,12 @@ def purge_all(device_id: str, root: Path, env: dict[str, str]) -> bool:
 
     remaining = count_influx_points(device_id, env)
     if remaining is None:
-        print(f"  Verificación Influx: no se pudo contar puntos de {device_id}")
+        print(f"  Influx verify: could not count points for {device_id}")
     elif remaining == 0:
-        print(f"  Verificación Influx: 0 puntos (30d) para {device_id}")
+        print(f"  Influx verify: 0 points (30d) for {device_id}")
     else:
         print(
-            f"  Verificación Influx: AÚN hay {remaining} punto(s) (30d) para {device_id}",
+            f"  Influx verify: STILL {remaining} point(s) (30d) for {device_id}",
             file=sys.stderr,
         )
         ok = False

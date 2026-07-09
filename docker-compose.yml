@@ -1,4 +1,4 @@
-# Producción Gironasa: sma-server comparte red con wg-easy (como antes).
+# Producción Gironasa: backend comparte red con wg-easy.
 # API accesible en http://10.8.0.1:8000 desde la RPi (sma-push, iot-gateway).
 #
 # Requisitos:
@@ -11,9 +11,9 @@
 # Sin wg-easy (solo localhost/nginx): usa docker-compose.standalone.yml
 
 services:
-  sma-server:
+  backend:
     build: .
-    container_name: sma-server
+    container_name: backend
     env_file: .env
     environment:
       INFLUX_URL: http://172.17.0.1:8086

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Borra dispositivos IoT (Influx + data/iot_devices.json).
-# Uso:
+# Purge IoT devices (Influx + data/iot_devices.json).
+# Usage:
 #   bash scripts/purge_iot_device.sh homeassistant niquel
 #   bash scripts/purge_iot_device.sh --influx-only homeassistant
 #   bash scripts/purge_iot_device.sh --registry-only niquel

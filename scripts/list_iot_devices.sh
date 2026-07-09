@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Lista device_id con datos reales en Influx, registro y machines config.
-# Uso: cd ~/gironasa/sma-server && bash scripts/list_iot_devices.sh
+# List device_id values with real data in Influx, registry, and machines config.
+# Usage: cd ~/gironasa/backend && bash scripts/list_iot_devices.sh
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -16,11 +16,11 @@ TOKEN="${INFLUX_TOKEN:-}"
 API_KEY="${SMA_API_KEY:-}"
 
 if [[ -z "$TOKEN" ]]; then
-  echo "ERROR: falta INFLUX_TOKEN en .env"
+  echo "ERROR: INFLUX_TOKEN missing in .env"
   exit 1
 fi
 
-echo "=== device_id con puntos en Influx (iot_telemetry, 30d) ==="
+echo "=== device_id with points in Influx (iot_telemetry, 30d) ==="
 FLUX='
 from(bucket: "'"$BUCKET"'")
   |> range(start: -30d)
@@ -35,10 +35,10 @@ curl -sS -X POST "$URL/api/v2/query?org=$(python3 -c "import urllib.parse; print
   -H "Authorization: Token $TOKEN" \
   -H "Accept: application/csv" \
   -H "Content-type: application/vnd.flux" \
-  --data-binary "$FLUX" | grep -v '^#' | grep -v '^$' || echo "(ninguno)"
+  --data-binary "$FLUX" | grep -v '^#' | grep -v '^$' || echo "(none)"
 
 echo ""
-echo "=== Equipos en machines_config.json (lo que muestra la web) ==="
+echo "=== Machines in machines_config.json (shown in the web UI) ==="
 if [[ -f data/machines_config.json ]]; then
   python3 - <<'PY'
 import json
@@ -46,19 +46,19 @@ from pathlib import Path
 raw = json.loads(Path("data/machines_config.json").read_text(encoding="utf-8"))
 for m in raw.get("machines", []):
     did = m.get("device_id") or m.get("deviceId") or m.get("id")
-    name = m.get("name") or "(sin nombre)"
+    name = m.get("name") or "(no name)"
     print(f"  - {did}  name={name!r}")
 ambient = raw.get("ambientTemperatureSource")
 if ambient:
     print(f"  ambientTemperatureSource -> {ambient}")
 PY
 else
-  echo "  (no existe data/machines_config.json)"
+  echo "  (data/machines_config.json does not exist)"
 fi
 
 if [[ -n "$API_KEY" ]]; then
   echo ""
-  echo "=== Registro sma-server (iot_devices.json) ==="
+  echo "=== Backend registry (iot_devices.json) ==="
   if BASE_URL="$(resolve_sma_base_url)"; then
     echo "API: $BASE_URL"
     curl -sS -H "X-API-Key: $API_KEY" "${BASE_URL}/api/v1/iot/devices" | python3 -m json.tool
@@ -68,5 +68,5 @@ if [[ -n "$API_KEY" ]]; then
 fi
 
 echo ""
-echo "Nota: el explorador de Influx puede seguir sugiriendo tags antiguos en el autocompletado"
-echo "      aunque ya no haya puntos. La tabla de arriba cuenta datos reales."
+echo "Note: the Influx explorer may still suggest old tags in autocomplete"
+echo "      even when there are no points. The table above counts real data."

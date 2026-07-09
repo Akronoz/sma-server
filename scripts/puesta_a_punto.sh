@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Diagnóstico y comprobación del circuito IoT → Influx (ejecutar en el VPS).
+# Diagnose and verify the IoT -> Influx pipeline (run on the VPS).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -16,41 +16,41 @@ if [[ -f .env ]]; then
 fi
 
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║  PUESTA A PUNTO — sma-server + Influx IoT               ║"
+echo "║  SETUP CHECK — backend + Influx IoT                    ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 
 echo "── 1. WireGuard (wg-easy) ──"
-docker ps --format '  {{.Names}}  {{.Status}}' | grep -i wg || echo "  ¡No hay contenedor wg!"
+docker ps --format '  {{.Names}}  {{.Status}}' | grep -i wg || echo "  No wg container found!"
 if docker ps --format '{{.Names}}' | grep -qx "$WG_NAME"; then
-  echo "  OK: $WG_NAME en marcha"
+  echo "  OK: $WG_NAME running"
 else
-  echo "  ERROR: falta '$WG_NAME'. Ajusta WG_CONTAINER en .env"
+  echo "  ERROR: missing '$WG_NAME'. Set WG_CONTAINER in .env"
 fi
 
 echo ""
-echo "── 2. sma-server ──"
-if docker ps --format '{{.Names}}' | grep -qx sma-server; then
-  docker ps --filter name=sma-server --format '  {{.Names}}  {{.Status}}  ports={{.Ports}}'
-  echo "  NetworkMode=$(docker inspect sma-server --format '{{.HostConfig.NetworkMode}}')"
+echo "── 2. backend ──"
+if docker ps --format '{{.Names}}' | grep -qx backend; then
+  docker ps --filter name=backend --format '  {{.Names}}  {{.Status}}  ports={{.Ports}}'
+  echo "  NetworkMode=$(docker inspect backend --format '{{.HostConfig.NetworkMode}}')"
 else
-  echo "  ERROR: sma-server no está corriendo"
+  echo "  ERROR: backend is not running"
 fi
 
 echo ""
-echo "── 3. API por VPN (10.8.0.1:8000) — lo que usa la RPi ──"
+echo "── 3. API over VPN (10.8.0.1:8000) — used by the RPi ──"
 if curl -sf http://10.8.0.1:8000/health >/dev/null; then
   curl -s http://10.8.0.1:8000/health
   echo ""
   echo "  OK health"
 else
-  echo "  FALLO — la RPi no puede enviar telemetría"
-  echo "  Arreglo: bash deploy/up.sh"
+  echo "  FAILED — the RPi cannot send telemetry"
+  echo "  Fix: bash deploy/up.sh"
 fi
 
 echo ""
-echo "── 4. Variables Influx en el contenedor ──"
-docker inspect sma-server --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
+echo "── 4. Influx variables in the container ──"
+docker inspect backend --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
   | grep -E '^INFLUX_|^SMA_API_KEY' \
   | while IFS= read -r line; do
       k="${line%%=*}"
@@ -60,39 +60,39 @@ docker inspect sma-server --format '{{range .Config.Env}}{{println .}}{{end}}' 2
       else
         echo "  $line"
       fi
-    done || echo "  (sin contenedor)"
+    done || echo "  (no container)"
 
 echo ""
-echo "── 5. Puntos temperature_1 en Influx (24h) ──"
+echo "── 5. temperature_1 points in Influx (24h) ──"
 if [[ -f scripts/check_iot_influx.sh ]]; then
   bash scripts/check_iot_influx.sh 2>/dev/null | tail -20 || true
 fi
 
 echo ""
-echo "── 6. Prueba escritura IoT (opcional) ──"
+echo "── 6. IoT write test (optional) ──"
 if [[ -n "$API_KEY" ]] && curl -sf http://10.8.0.1:8000/health >/dev/null; then
   HTTP=$(curl -s -o /tmp/iot-test.json -w "%{http_code}" \
     -X POST http://10.8.0.1:8000/api/v1/iot/telemetry \
     -H "Content-Type: application/json" \
     -H "X-API-Key: $API_KEY" \
     -d '{"events":[{"device_id":"TEST-PING","metric":"temperature_1","channel":"1","value":42.0,"received_at":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}]}')
-  echo "  POST telemetría test → HTTP $HTTP  $(cat /tmp/iot-test.json 2>/dev/null)"
+  echo "  POST test telemetry -> HTTP $HTTP  $(cat /tmp/iot-test.json 2>/dev/null)"
 else
-  echo "  Omitido (falta SMA_API_KEY en entorno o API caído)"
+  echo "  Skipped (SMA_API_KEY missing in environment or API down)"
 fi
 
 echo ""
 echo "══════════════════════════════════════════════════════════"
-echo "INFLUX DATA EXPLORER — gráfica temperatura"
+echo "INFLUX DATA EXPLORER — temperature chart"
 echo "══════════════════════════════════════════════════════════"
 echo "  Bucket:      sma"
 echo "  Measurement: iot_telemetry"
 echo "  Field:       value"
 echo "  Tag metric:  temperature_1"
-echo "  Tag device:  ESP-ACA704305E20  (tu serial)"
-echo "  Rango:       Last 1 hour (o 6 hours)"
+echo "  Tag device:  ESP-ACA704305E20  (your serial)"
+echo "  Range:       Last 1 hour (or 6 hours)"
 echo ""
-echo "Flux (pegar en Script Editor):"
+echo "Flux (paste in Script Editor):"
 cat <<'FLUX'
 
 from(bucket: "sma")
@@ -105,6 +105,6 @@ from(bucket: "sma")
 
 FLUX
 echo ""
-echo "Si count() = 1 → casi no llega telemetría desde la RPi."
-echo "Si count() > 50 → deberías ver curva (Visualization: Graph)."
+echo "If count() = 1 -> almost no telemetry arriving from the RPi."
+echo "If count() > 50 -> you should see a curve (Visualization: Graph)."
 echo "══════════════════════════════════════════════════════════"

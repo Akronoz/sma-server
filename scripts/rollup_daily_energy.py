@@ -9,7 +9,7 @@ Usage:
   python scripts/rollup_daily_energy.py --from 2026-06-01 --to 2026-06-30
 
 Recommended cron (00:05 server time; adjust TZ if needed):
-  5 0 * * * cd ~/gironasa/sma-server && set -a && . ./.env && set +a && venv/bin/python3 scripts/rollup_daily_energy.py --yesterday
+  5 0 * * * cd ~/gironasa/backend && set -a && . ./.env && set +a && venv/bin/python3 scripts/rollup_daily_energy.py --yesterday
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ def _client() -> InfluxDBClient:
     token = _env("INFLUX_TOKEN")
     org = _env("INFLUX_ORG")
     if not token or not org:
-        raise SystemExit("Faltan INFLUX_TOKEN o INFLUX_ORG")
+        raise SystemExit("Missing INFLUX_TOKEN or INFLUX_ORG")
     return InfluxDBClient(url=url, token=token, org=org)
 
 
@@ -62,12 +62,12 @@ def _yesterday_ymd() -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Rollup diario sma_plant → sma_energy_day")
-    parser.add_argument("--date", help="Día YYYY-MM-DD")
-    parser.add_argument("--yesterday", action="store_true", help="Ayer (día cerrado)")
-    parser.add_argument("--backfill", action="store_true", help="Desde el primer dato hasta ayer")
-    parser.add_argument("--from", dest="from_date", help="Inicio YYYY-MM-DD")
-    parser.add_argument("--to", dest="to_date", help="Fin YYYY-MM-DD")
+    parser = argparse.ArgumentParser(description="Daily rollup sma_plant -> sma_energy_day")
+    parser.add_argument("--date", help="Day YYYY-MM-DD")
+    parser.add_argument("--yesterday", action="store_true", help="Yesterday (closed day)")
+    parser.add_argument("--backfill", action="store_true", help="From first data point through yesterday")
+    parser.add_argument("--from", dest="from_date", help="Start YYYY-MM-DD")
+    parser.add_argument("--to", dest="to_date", help="End YYYY-MM-DD")
     parser.add_argument("--host", default=_env("SMA_HOST", "gironasa"))
     args = parser.parse_args()
 
@@ -82,12 +82,12 @@ def main() -> None:
         elif args.backfill:
             earliest = query_earliest_raw_ymd(client, _env("INFLUX_ORG"), bucket)
             if not earliest:
-                raise SystemExit("Sin datos en sma_plant")
+                raise SystemExit("No data in sma_plant")
             dates = list(iter_ymd_range(earliest, _yesterday_ymd()))
         elif args.from_date and args.to_date:
             dates = list(iter_ymd_range(args.from_date, args.to_date))
         else:
-            parser.error("Indica --yesterday, --date, --backfill o --from/--to")
+            parser.error("Specify --yesterday, --date, --backfill, or --from/--to")
 
         written = 0
         skipped = 0

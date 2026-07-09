@@ -1,19 +1,19 @@
 #!/bin/bash
-# Monitoriza llegada de datos SMA en consola.
-# Uso: ./scripts/monitor.sh
-#      ./scripts/monitor.sh http://10.8.0.1:8000 10
+# Monitor SMA data arrival on the console.
+# Usage: ./scripts/monitor.sh
+#        ./scripts/monitor.sh http://10.8.0.1:8000 10
 
 API="${1:-http://10.8.0.1:8000}"
 INTERVAL="${2:-10}"
 
-echo "Monitor SMA → $API/api/v1/snapshots/latest cada ${INTERVAL}s (Ctrl+C salir)"
+echo "Monitoring SMA -> $API/api/v1/snapshots/latest every ${INTERVAL}s (Ctrl+C to exit)"
 echo ""
 
 LAST_TIME=""
 while true; do
   NOW=$(date '+%Y-%m-%d %H:%M:%S')
   RESP=$(curl -sf "$API/api/v1/snapshots/latest" 2>/dev/null) || {
-    echo "[$NOW] SIN RESPUESTA — ¿sma-server arriba?"
+    echo "[$NOW] NO RESPONSE — is the backend up?"
     sleep "$INTERVAL"
     continue
   }
@@ -25,10 +25,10 @@ while true; do
   PLANT=$(echo "$RESP" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('plant_timestamp',''))" 2>/dev/null)
 
   if [ "$TIME" != "$LAST_TIME" ]; then
-    echo "[$NOW] NUEVO DATO | host=$HOST | prod=${PROD}kW | consumo=${CONS}kW | planta=$PLANT | ingesta=$TIME"
+    echo "[$NOW] NEW DATA | host=$HOST | prod=${PROD}kW | consumption=${CONS}kW | plant=$PLANT | ingested=$TIME"
     LAST_TIME="$TIME"
   else
-    echo "[$NOW] sin cambios (último: $TIME)"
+    echo "[$NOW] no change (last: $TIME)"
   fi
 
   sleep "$INTERVAL"

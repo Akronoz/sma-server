@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Encola un comando ON/OFF de prueba.
-# Uso: bash scripts/test_command.sh ESP-ACA704305E20 1 true
+# Enqueue a test ON/OFF command.
+# Usage: bash scripts/test_command.sh ESP-ACA704305E20 1 true
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -13,7 +13,7 @@ API="${SMA_API_KEY:-}"
 URL="${TEST_API_URL:-http://10.8.0.1:8000}"
 
 if [[ -z "$DEVICE" || -z "$API" ]]; then
-  echo "Uso: bash scripts/test_command.sh ESP-XXXXXXXXXXXX [salida 1-4] [true|false]"
+  echo "Usage: bash scripts/test_command.sh ESP-XXXXXXXXXXXX [output 1-4] [true|false]"
   exit 1
 fi
 
@@ -24,7 +24,7 @@ curl -sS -X POST "$URL/api/v1/iot/commands" \
   -d "{\"device_id\":\"$DEVICE\",\"action\":\"set_output\",\"output\":$OUTPUT,\"state\":$STATE}"
 echo ""
 echo ""
-echo "Pendientes (debería vaciarse en ~1s si iot-gateway en RPi está activo):"
+echo "Pending queue (should drain in ~1s if iot-gateway on the RPi is active):"
 sleep 2
 curl -sS -H "X-API-Key: $API" "$URL/api/v1/iot/commands/pending"
 echo ""

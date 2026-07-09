@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -15,8 +16,11 @@ from devices_store import DevicesStore
 from firmware_manifest import FirmwareManifestStore
 from iot_commands import CommandStore
 from machines_config import MachinesConfigStore
+from ws_manager import ws_manager
 
-logger = logging.getLogger("sma-server.iot")
+logger = logging.getLogger("backend.iot")
+
+GATEWAY_ID = os.environ.get("IOT_GATEWAY_ID", "default").strip() or "default"
 
 router = APIRouter(prefix="/api/v1/iot", tags=["iot"])
 
@@ -247,7 +251,14 @@ def create_command(
         state=state_bool,
         url=url,
     )
-    return {"ok": True, "command": command.to_public()}
+
+    public = command.to_public()
+    if ws_manager.is_connected(GATEWAY_ID):
+        asyncio.create_task(ws_manager.send_command(GATEWAY_ID, public))
+    else:
+        logger.debug("Gateway %s not connected via WS; command queued for polling", GATEWAY_ID)
+
+    return {"ok": True, "command": public}
 
 
 @router.post("/commands/{command_id}/ack")

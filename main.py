@@ -22,13 +22,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("sma-server")
+logger = logging.getLogger("backend")
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
 from iot_routes import configure_iot_routes, router as iot_router
+from ws_manager import ws_manager
 
 API_KEY = os.environ.get("SMA_API_KEY", "").strip()
 INFLUX_URL = os.environ.get("INFLUX_URL", "http://localhost:8086").strip()
@@ -36,7 +37,7 @@ INFLUX_TOKEN = os.environ.get("INFLUX_TOKEN", "").strip()
 INFLUX_ORG = os.environ.get("INFLUX_ORG", "").strip()
 INFLUX_BUCKET = os.environ.get("INFLUX_BUCKET", "sma").strip()
 
-app = FastAPI(title="SMA Ingest API", version="1.2")
+app = FastAPI(title="Gironasa Backend API", version="1.3")
 INFLUX_PRODUCTION_FIELD = "inverter_power_kw"
 app.include_router(iot_router)
 
@@ -99,6 +100,23 @@ configure_iot_routes(
     influx_bucket=INFLUX_BUCKET,
     verify_api_key=_verify_api_key,
 )
+
+@app.websocket("/ws/gateway/{gateway_id}")
+async def websocket_gateway(websocket: WebSocket, gateway_id: str) -> None:
+    api_key = websocket.headers.get("x-api-key", "").strip()
+    if not API_KEY or api_key != API_KEY:
+        await websocket.close(code=1008, reason="Invalid API key")
+        return
+
+    await ws_manager.connect(websocket, gateway_id)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(gateway_id)
+    except Exception as exc:
+        logger.warning("WS error for %s: %s", gateway_id, exc)
+        ws_manager.disconnect(gateway_id)
 
 
 def _payload_to_point(payload: dict) -> Point:
