@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import threading
 from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from json_io import atomic_write_json, read_json
 
 DEFAULT_DEVICES = Path(__file__).with_name("data") / "iot_devices.json"
 
@@ -20,21 +21,12 @@ class DevicesStore:
         self._load()
 
     def _load(self) -> None:
-        if not self.path.is_file():
-            return
-        try:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return
+        raw = read_json(self.path, default=None)
         if isinstance(raw, dict) and isinstance(raw.get("devices"), dict):
             self._devices = raw["devices"]
 
     def _save(self) -> None:
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps({"devices": self._devices}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        atomic_write_json(self.path, {"devices": self._devices})
 
     def list_devices(self) -> list[dict[str, Any]]:
         with self._lock:
