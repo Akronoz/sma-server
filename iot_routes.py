@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 import os
+import queue
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable
 
 from fastapi import APIRouter, Header, HTTPException
+from fastapi.responses import StreamingResponse
 from influxdb_client import Point
+
+from live_hub import io_event_from_telemetry, live_hub
 
 from devices_store import DevicesStore
 from firmware_manifest import FirmwareManifestStore
@@ -204,7 +210,45 @@ def ingest_telemetry(
         f" ({', '.join(summaries)})" if summaries else "",
     )
 
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        live_event = io_event_from_telemetry(event)
+        if live_event is not None:
+            live_hub.publish(live_event)
+
     return {"ok": True, "written": len(points)}
+
+
+@router.get("/live")
+async def live_io_stream(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> StreamingResponse:
+    _require_auth(x_api_key)
+
+    async def event_stream():
+        subscriber = live_hub.subscribe()
+        try:
+            yield ": connected\n\n"
+            while True:
+                try:
+                    event = await asyncio.to_thread(subscriber.get, True, 25.0)
+                except queue.Empty:
+                    yield ": keepalive\n\n"
+                    continue
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        finally:
+            live_hub.unsubscribe(subscriber)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/commands/pending")
